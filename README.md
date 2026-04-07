@@ -47,12 +47,12 @@ The system follows a **decoupled client-server architecture** with real-time eve
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                         CLIENT (Next.js)                            │
+│                         CLIENT (Next.js)                             │
 │                                                                      │
-│   ┌─────────────┐    ┌──────────────────┐    ┌───────────────────┐  │
-│   │  Dashboard   │    │ Transaction Form │    │  Live Activity    │  │
-│   │  (Accounts)  │    │ (Deposit/WD/TX)  │    │  Log + Alerts     │  │
-│   └──────┬───────┘    └────────┬─────────┘    └────────┬──────────┘  │
+│   ┌─────────────┐   ┌──────────────────┐   ┌───────────────────┐     │
+│   │  Dashboard  │   │ Transaction Form │   │  Live Activity    │     │
+│   │  (Accounts) │   │ (Deposit/WD/TX)  │   │  Log + Alerts     │     │
+│   └──────┬──────┘   └────────┬─────────┘   └────────┬──────────┘     │
 │          │                     │                       │             │
 │          │         REST API (fetch)            Socket.io Client      │
 │          │              │                              │             │
@@ -60,57 +60,57 @@ The system follows a **decoupled client-server architecture** with real-time eve
            │              │                              │
            ▼              ▼                              ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│                       SERVER (Express.js)                           │
+│                       SERVER (Express.js)                            │
 │                                                                      │
 │   ┌─────────────────────────────────────────────────────────────┐    │
-│   │                    REST API Layer                            │    │
+│   │                    REST API Layer                           │    │
 │   │   POST /api/transactions  │  GET /api/accounts              │    │
-│   │   GET  /api/transactions  │                                  │    │
-│   └──────────────┬────────────────────────────────────────────── │    │
-│                  │                                                    │
+│   │   GET  /api/transactions  │                                 │    │
+│   └──────────────┬──────────────────────────────────────────────     │
+│                  │                                                   │
 │   ┌──────────────▼──────────────────────────────────────────┐        │
-│   │           Transaction Controller                         │        │
-│   │                                                          │        │
-│   │   ┌─────────────┐  ┌──────────────┐  ┌──────────────┐  │        │
-│   │   │  Deposit     │  │  Withdraw    │  │  Transfer    │  │        │
-│   │   │  Handler     │  │  Handler     │  │  Handler     │  │        │
-│   │   │              │  │              │  │  + Mutex      │  │        │
-│   │   │  OCC Check   │  │  OCC Check   │  │  + BEGIN IMM │  │        │
-│   │   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │        │
-│   │          │                 │                  │          │        │
-│   │          └─────────┬───────┘──────────────────┘          │        │
-│   │                    │                                     │        │
-│   │          ┌─────────▼─────────┐                           │        │
-│   │          │  Version Check    │                           │        │
-│   │          │  UPDATE ... WHERE │                           │        │
-│   │          │  version = N      │                           │        │
-│   │          └─────────┬─────────┘                           │        │
-│   │                    │                                     │        │
-│   └────────────────────┼─────────────────────────────────────┘        │
-│                        │                                              │
+│   │           Transaction Controller                        │        │
+│   │                                                         │        │
+│   │   ┌─────────────┐  ┌──────────────┐  ┌──────────────┐   │        │
+│   │   │  Deposit    │  │  Withdraw    │  │  Transfer    │   │        │
+│   │   │  Handler    │  │  Handler     │  │  Handler     │   │        │
+│   │   │             │  │              │  │  + Mutex     │   │        │
+│   │   │  OCC Check  │  │  OCC Check   │  │  + BEGIN IMM │   │        │
+│   │   └──────┬──────┘  └──────┬───────┘  └──────┬───────┘   │        │
+│   │          │                │                 │           │        │
+│   │          └─────────┬──────┘─────────────────┘           │        │
+│   │                    │                                    │        │
+│   │          ┌─────────▼─────────┐                          │        │
+│   │          │  Version Check    │                          │        │
+│   │          │  UPDATE ... WHERE │                          │        │
+│   │          │  version = N      │                          │        │
+│   │          └─────────┬─────────┘                          │        │
+│   │                    │                                    │        │
+│   └────────────────────┼────────────────────────────────────┘        │
+│                        │                                             │
 │   ┌────────────────────▼─────────────────────────────────────┐       │
-│   │              Socket.io Server                             │       │
-│   │   Emits: transaction:created │ balance:updated            │       │
-│   │          transaction:failed                               │       │
-│   └───────────────────────────────────────────────────────────┘       │
-│                        │                                              │
-└────────────────────────┼──────────────────────────────────────────────┘
+│   │              Socket.io Server                            │       │
+│   │   Emits: transaction:created │ balance:updated           │       │
+│   │          transaction:failed                              │       │
+│   └──────────────────────────────────────────────────────────┘       │
+│                        │                                             │
+└────────────────────────┼─────────────────────────────────────────────┘
                          │
               ┌──────────▼──────────┐
-              │     SQLite (WAL)     │
-              │                      │
-              │  accounts            │
-              │  ├─ account_id (PK)  │
-              │  ├─ holder_name      │
-              │  ├─ balance >= 0     │
-              │  └─ version          │
-              │                      │
-              │  transactions        │
-              │  ├─ id (PK)          │
-              │  ├─ type / amount    │
-              │  ├─ status / reason  │
-              │  └─ created_at       │
-              └──────────────────────┘
+              │     SQLite (WAL)    │
+              │                     │
+              │  accounts           │
+              │  ├─ account_id (PK) │
+              │  ├─ holder_name     │
+              │  ├─ balance >= 0    │
+              │  └─ version         │
+              │                     │
+              │  transactions       │
+              │  ├─ id (PK)         │
+              │  ├─ type / amount   │
+              │  ├─ status / reason │
+              │  └─ created_at      │
+              └─────────────────────┘
 ```
 
 ### Key Architectural Decisions
