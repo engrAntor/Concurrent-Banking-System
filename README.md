@@ -66,7 +66,7 @@ The system follows a **decoupled client-server architecture** with real-time eve
 │   │                    REST API Layer                           │    │
 │   │   POST /api/transactions  │  GET /api/accounts              │    │
 │   │   GET  /api/transactions  │                                 │    │
-│   └──────────────┬──────────────────────────────────────────────┘     │
+│   └──────────────┬──────────────────────────────────────────────┘    │
 │                  │                                                   │
 │   ┌──────────────▼──────────────────────────────────────────┐        │
 │   │           Transaction Controller                        │        │
