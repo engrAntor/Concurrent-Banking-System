@@ -27,14 +27,29 @@ interface Notification {
   message: string;
 }
 
-const avatarColors: Record<string, string> = {
-  ACC1001: 'from-violet-500 to-indigo-600',
-  ACC1002: 'from-blue-500 to-cyan-600',
-  ACC1003: 'from-emerald-500 to-teal-600',
+const AVATAR_STYLES: Record<string, React.CSSProperties> = {
+  ACC1001: { background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' },
+  ACC1002: { background: 'linear-gradient(135deg, #2563eb, #0891b2)' },
+  ACC1003: { background: 'linear-gradient(135deg, #059669, #0d9488)' },
 };
+
+const DEFAULT_AVATAR: React.CSSProperties = { background: 'linear-gradient(135deg, #374151, #1f2937)' };
 
 const getInitials = (name: string) =>
   name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+const TX_TYPE_STYLES: Record<string, { color: string; bg: string; prefix: string }> = {
+  deposit:  { color: '#34d399', bg: 'rgba(52,211,153,0.12)',  prefix: '+' },
+  withdraw: { color: '#fb923c', bg: 'rgba(251,146,60,0.12)',  prefix: '-' },
+  transfer: { color: '#818cf8', bg: 'rgba(129,140,248,0.12)', prefix: '↔' },
+};
+
+const STAT_CARDS = (totalBalance: number, accountCount: number, txCount: number, successRate: string) => [
+  { label: 'Total Balance',    value: `$${totalBalance.toFixed(2)}`, sub: 'Across all accounts', icon: '💰', accent: '#3b82f6' },
+  { label: 'Active Accounts',  value: String(accountCount),          sub: 'Seeded accounts',    icon: '👤', accent: '#8b5cf6' },
+  { label: 'Transactions',     value: String(txCount),               sub: 'Total logged',       icon: '📊', accent: '#10b981' },
+  { label: 'Success Rate',     value: txCount ? successRate : '–',   sub: 'Completed safely',   icon: '✅', accent: '#f97316' },
+];
 
 export default function Home() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -45,86 +60,63 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'all' | 'deposit' | 'withdraw' | 'transfer'>('all');
 
   const fetchAccounts = async () => {
-    try {
-      const res = await fetch('http://localhost:3001/api/accounts');
-      setAccounts(await res.json());
-    } catch {}
+    try { const r = await fetch('http://localhost:3001/api/accounts'); setAccounts(await r.json()); } catch {}
   };
-
   const fetchTransactions = async () => {
-    try {
-      const res = await fetch('http://localhost:3001/api/transactions');
-      setTransactions(await res.json());
-    } catch {}
+    try { const r = await fetch('http://localhost:3001/api/transactions'); setTransactions(await r.json()); } catch {}
   };
 
   const addNotification = (type: 'success' | 'error', message: string) => {
-    const id = notifCounter + 1;
-    setNotifCounter(id);
+    const id = Date.now() + notifCounter;
+    setNotifCounter(c => c + 1);
     setNotifications(prev => [{ id, type, message }, ...prev].slice(0, 4));
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000);
   };
 
   useEffect(() => {
-    fetchAccounts();
-    fetchTransactions();
+    fetchAccounts(); fetchTransactions();
     socket.connect();
-
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
     socket.on('balance:updated', () => { fetchAccounts(); fetchTransactions(); });
-    socket.on('transaction:created', (data) => {
-      addNotification('success', `${data.type.charAt(0).toUpperCase() + data.type.slice(1)} of $${Number(data.amount).toFixed(2)} succeeded`);
-    });
-    socket.on('transaction:failed', (data) => {
-      addNotification('error', `${data.type.charAt(0).toUpperCase() + data.type.slice(1)} failed — ${data.reason}`);
-    });
-
+    socket.on('transaction:created', (d) => addNotification('success', `${d.type.charAt(0).toUpperCase() + d.type.slice(1)} of $${Number(d.amount).toFixed(2)} succeeded`));
+    socket.on('transaction:failed',  (d) => addNotification('error',   `${d.type.charAt(0).toUpperCase() + d.type.slice(1)} failed — ${d.reason}`));
     return () => {
-      socket.off('connect'); socket.off('disconnect');
-      socket.off('balance:updated'); socket.off('transaction:created'); socket.off('transaction:failed');
+      ['connect','disconnect','balance:updated','transaction:created','transaction:failed'].forEach(e => socket.off(e));
       socket.disconnect();
     };
   }, []);
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-  const successCount = transactions.filter(tx => tx.status === 'success').length;
-  const filteredTx = activeTab === 'all' ? transactions : transactions.filter(tx => tx.type === activeTab);
-
-  const txTypeStyle = (type: string) => {
-    if (type === 'deposit') return 'text-emerald-400 bg-emerald-400/10';
-    if (type === 'withdraw') return 'text-orange-400 bg-orange-400/10';
-    return 'text-blue-400 bg-blue-400/10';
-  };
-
-  const txAmountStyle = (type: string) => {
-    if (type === 'deposit') return 'text-emerald-400';
-    if (type === 'withdraw') return 'text-orange-400';
-    return 'text-blue-300';
-  };
-
-  const txAmountPrefix = (type: string) => {
-    if (type === 'deposit') return '+';
-    if (type === 'withdraw') return '-';
-    return '↔';
-  };
+  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
+  const successCount = transactions.filter(t => t.status === 'success').length;
+  const successRate  = `${Math.round((successCount / transactions.length) * 100)}%`;
+  const filteredTx   = activeTab === 'all' ? transactions : transactions.filter(t => t.type === activeTab);
+  const tabs = ['all', 'deposit', 'withdraw', 'transfer'] as const;
 
   return (
-    <div className="min-h-screen mesh-bg text-white" style={{ fontFamily: "var(--font-inter, Inter, system-ui, sans-serif)" }}>
-      
+    <div className="min-h-screen" style={{ backgroundColor: '#030712', fontFamily: 'var(--font-inter, Inter, system-ui, sans-serif)' }}>
+
+      {/* Subtle mesh glow */}
+      <div className="fixed inset-0 pointer-events-none" style={{
+        background: `
+          radial-gradient(ellipse 70% 50% at 10% 15%, rgba(59,130,246,0.07) 0%, transparent 55%),
+          radial-gradient(ellipse 55% 70% at 85% 80%, rgba(52,211,153,0.05) 0%, transparent 55%)
+        `
+      }} />
+
       {/* Toast Notifications */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
         {notifications.map(n => (
-          <div key={n.id} className={`toast-enter flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium backdrop-blur-sm max-w-xs pointer-events-auto
-            ${n.type === 'success'
-              ? 'bg-emerald-950/90 border-emerald-700/50 text-emerald-200'
-              : 'bg-red-950/90 border-red-700/50 text-red-200'}`}
-          >
+          <div key={n.id} className="toast-enter flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium pointer-events-auto max-w-xs"
+            style={n.type === 'success'
+              ? { background: 'rgba(6,78,59,0.95)', border: '1px solid rgba(16,185,129,0.4)', color: '#a7f3d0', backdropFilter: 'blur(12px)' }
+              : { background: 'rgba(69,10,10,0.95)', border: '1px solid rgba(239,68,68,0.4)',  color: '#fecaca', backdropFilter: 'blur(12px)' }
+            }>
             {n.type === 'success'
-              ? <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+              ? <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: '#10b981' }}>
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>
                 </div>
-              : <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+              : <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: '#ef4444' }}>
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M6 18L18 6M6 6l12 12"/></svg>
                 </div>
             }
@@ -133,47 +125,45 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Nav */}
-      <nav className="sticky top-0 z-40 border-b border-white/[0.06] bg-black/30 backdrop-blur-xl">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-40" style={{ background: 'rgba(3,7,18,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}>
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}>
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path d="M3 6h18M3 12h18M3 18h18"/><rect x="2" y="4" width="20" height="16" rx="2"/>
+                <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/>
               </svg>
             </div>
-            <span className="font-bold text-sm tracking-tight gradient-text">NexBank</span>
+            <span className="font-bold text-sm" style={{ background: 'linear-gradient(135deg, #60a5fa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              NexBank
+            </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${isConnected ? 'bg-emerald-400 animate-pulse-glow' : 'bg-red-400'}`} />
-            <span className="text-xs font-medium text-gray-400">{isConnected ? 'Live Connected' : 'Disconnected'}</span>
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isConnected ? '#34d399' : '#ef4444', boxShadow: isConnected ? '0 0 8px #34d399' : 'none' }} />
+            <span className="text-xs font-medium" style={{ color: '#6b7280' }}>{isConnected ? 'Live Connected' : 'Disconnected'}</span>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-
-        {/* Header */}
+      <div className="relative max-w-7xl mx-auto px-6 py-8">
+        {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-extrabold gradient-text tracking-tight mb-1">Transaction Dashboard</h1>
-          <p className="text-sm text-gray-500">Real-time concurrent banking with Optimistic Concurrency Control</p>
+          <h1 className="text-3xl font-extrabold tracking-tight mb-1" style={{ background: 'linear-gradient(135deg, #60a5fa, #34d399, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Transaction Dashboard
+          </h1>
+          <p className="text-sm" style={{ color: '#6b7280' }}>Real-time concurrent banking with Optimistic Concurrency Control</p>
         </div>
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total Balance', value: `$${totalBalance.toFixed(2)}`, sub: 'Across all accounts', color: 'from-blue-500 to-indigo-600', icon: '💰' },
-            { label: 'Active Accounts', value: String(accounts.length), sub: 'Seeded accounts', color: 'from-violet-500 to-purple-600', icon: '👤' },
-            { label: 'Transactions', value: String(transactions.length), sub: 'Total logged', color: 'from-emerald-500 to-teal-600', icon: '📊' },
-            { label: 'Success Rate', value: transactions.length ? `${Math.round((successCount / transactions.length) * 100)}%` : '–', sub: 'Completed safely', color: 'from-orange-500 to-amber-600', icon: '✅' },
-          ].map((stat, i) => (
-            <div key={i} className="glass-card rounded-2xl p-5 group hover:border-white/15 transition-all duration-300">
+          {STAT_CARDS(totalBalance, accounts.length, transactions.length, successRate).map((stat, i) => (
+            <div key={i} className="rounded-2xl p-5 transition-all duration-300" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
               <div className="flex items-start justify-between mb-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#6b7280' }}>{stat.label}</p>
                 <span className="text-lg">{stat.icon}</span>
               </div>
               <p className="text-2xl font-bold text-white mb-1">{stat.value}</p>
-              <p className="text-xs text-gray-600">{stat.sub}</p>
+              <p className="text-xs" style={{ color: '#374151' }}>{stat.sub}</p>
             </div>
           ))}
         </div>
@@ -181,37 +171,29 @@ export default function Home() {
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Left: Accounts + Activity */}
+          {/* Left Col */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* Account Cards */}
+            {/* Accounts */}
             <div>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Accounts</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: '#6b7280' }}>Accounts</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {accounts.map(acc => (
-                  <div key={acc.account_id} className="glass-card rounded-2xl p-5 group hover:border-white/15 transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden">
-                    {/* Subtle hover gradient */}
-                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br ${avatarColors[acc.account_id] || 'from-gray-600 to-gray-700'}`} style={{ opacity: 0 }} />
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent to-transparent group-hover:from-blue-500/5 group-hover:to-indigo-500/5 transition-all duration-500 rounded-2xl" />
-
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarColors[acc.account_id] || 'from-gray-600 to-gray-700'} flex items-center justify-center text-xs font-bold text-white shadow-lg`}>
-                          {getInitials(acc.holder_name)}
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 font-mono">{acc.account_id}</p>
-                          <p className="text-sm font-semibold text-white leading-tight">{acc.holder_name}</p>
-                        </div>
+                  <div key={acc.account_id} className="rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'default' }}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white shadow-lg"
+                        style={AVATAR_STYLES[acc.account_id] || DEFAULT_AVATAR}>
+                        {getInitials(acc.holder_name)}
                       </div>
-
-                      <div className="border-t border-white/[0.06] pt-4">
-                        <p className="text-xs text-gray-500 mb-1">Balance</p>
-                        <p className="text-2xl font-bold font-mono text-white">
-                          ${parseFloat(String(acc.balance)).toFixed(2)}
-                        </p>
-                        <p className="text-[10px] text-gray-600 mt-1">v{acc.version} · OCC enabled</p>
+                      <div>
+                        <p className="text-xs font-mono" style={{ color: '#6b7280' }}>{acc.account_id}</p>
+                        <p className="text-sm font-semibold text-white leading-tight">{acc.holder_name}</p>
                       </div>
+                    </div>
+                    <div className="pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-xs mb-1" style={{ color: '#6b7280' }}>Balance</p>
+                      <p className="text-2xl font-bold font-mono text-white">${parseFloat(String(acc.balance)).toFixed(2)}</p>
+                      <p className="text-xs mt-1" style={{ color: '#374151' }}>v{acc.version} · OCC enabled</p>
                     </div>
                   </div>
                 ))}
@@ -219,88 +201,96 @@ export default function Home() {
             </div>
 
             {/* Activity Log */}
-            <div className="glass-card rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
+            <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-gray-600'} ${isConnected ? 'animate-pulse' : ''}`} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isConnected ? '#34d399' : '#6b7280' }} />
                   <h2 className="text-sm font-semibold text-white">Live Activity</h2>
                 </div>
-                {/* Tabs */}
                 <div className="flex gap-1">
-                  {(['all', 'deposit', 'withdraw', 'transfer'] as const).map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)} className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg transition-all capitalize cursor-pointer
-                      ${activeTab === tab ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+                  {tabs.map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab)}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg transition-all capitalize cursor-pointer"
+                      style={activeTab === tab
+                        ? { background: 'rgba(255,255,255,0.1)', color: 'white' }
+                        : { color: '#6b7280', background: 'transparent' }}>
                       {tab}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="custom-scrollbar overflow-y-auto max-h-80">
+              <div className="custom-scrollbar overflow-y-auto" style={{ maxHeight: '320px' }}>
                 {filteredTx.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-gray-600">
+                  <div className="flex flex-col items-center justify-center py-16" style={{ color: '#374151' }}>
                     <svg className="w-10 h-10 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                     <p className="text-sm">No transactions yet</p>
-                    <p className="text-xs mt-1">Use the form to get started</p>
                   </div>
-                ) : (
-                  filteredTx.map((tx, i) => (
-                    <div key={tx.id} className="flex items-center gap-4 px-5 py-3.5 border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors group"
-                      style={{ animationDelay: `${i * 30}ms` }}>
-                      {/* Type icon */}
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${txTypeStyle(tx.type)}`}>
-                        {tx.type === 'deposit' ? '↓' : tx.type === 'withdraw' ? '↑' : '↔'}
+                ) : filteredTx.map(tx => {
+                  const ts = TX_TYPE_STYLES[tx.type];
+                  return (
+                    <div key={tx.id} className="flex items-center gap-4 px-5 py-3.5 transition-colors"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{ color: ts.color, background: ts.bg }}>
+                        {ts.prefix}
                       </div>
-
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className={`text-xs font-semibold uppercase tracking-wide ${txTypeStyle(tx.type).split(' ')[0]}`}>{tx.type}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${tx.status === 'success' ? 'status-success' : 'status-failed'}`}>
+                          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: ts.color }}>{tx.type}</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
+                            style={tx.status === 'success'
+                              ? { background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' }
+                              : { background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>
                             {tx.status}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500 truncate font-mono">
+                        <p className="text-xs truncate font-mono" style={{ color: '#6b7280' }}>
                           {tx.type === 'transfer' ? `${tx.from_account} → ${tx.to_account}` :
-                            tx.type === 'deposit' ? `→ ${tx.to_account}` : `${tx.from_account} →`}
+                           tx.type === 'deposit'  ? `→ ${tx.to_account}` : `${tx.from_account} →`}
                         </p>
                         {tx.status === 'failed' && tx.reason && (
-                          <p className="text-[10px] text-red-400/70 truncate mt-0.5">{tx.reason}</p>
+                          <p className="text-xs truncate mt-0.5" style={{ color: 'rgba(248,113,113,0.7)' }}>{tx.reason}</p>
                         )}
                       </div>
-
                       <div className="text-right shrink-0">
-                        <p className={`text-sm font-bold font-mono ${txAmountStyle(tx.type)}`}>
-                          {txAmountPrefix(tx.type)} ${tx.amount.toFixed(2)}
+                        <p className="text-sm font-bold font-mono" style={{ color: ts.color }}>
+                          {ts.prefix} ${tx.amount.toFixed(2)}
                         </p>
-                        <p className="text-[10px] text-gray-600">{new Date(tx.created_at).toLocaleTimeString()}</p>
+                        <p className="text-xs mt-1" style={{ color: '#374151' }}>{new Date(tx.created_at).toLocaleTimeString()}</p>
                       </div>
                     </div>
-                  ))
-                )}
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* Right: Form */}
+          {/* Right Col */}
           <div className="lg:col-span-1">
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">New Transaction</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: '#6b7280' }}>New Transaction</h2>
             <TransactionForm accounts={accounts} onTransactionSuccess={() => {}} />
 
-            {/* Info card */}
-            <div className="mt-4 glass-card rounded-2xl p-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">OCC Status</p>
-              <div className="space-y-2">
+            {/* OCC Status Panel */}
+            <div className="mt-4 rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#6b7280' }}>OCC Status</p>
+              <div className="space-y-2.5">
                 {[
-                  { label: 'Version Control', status: 'Active', ok: true },
-                  { label: 'WAL Mode', status: 'Enabled', ok: true },
-                  { label: 'Mutex Guard', status: 'Transfers', ok: true },
-                  { label: 'Balance Check', status: 'Enforced', ok: true },
+                  { label: 'Version Control',  status: 'Active' },
+                  { label: 'WAL Mode',         status: 'Enabled' },
+                  { label: 'Mutex Guard',      status: 'Transfers' },
+                  { label: 'Balance Floor',    status: 'Enforced' },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{item.label}</span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${item.ok ? 'status-success' : 'status-failed'}`}>{item.status}</span>
+                    <span className="text-xs" style={{ color: '#6b7280' }}>{item.label}</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md"
+                      style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' }}>
+                      {item.status}
+                    </span>
                   </div>
                 ))}
               </div>

@@ -47,9 +47,9 @@ export async function initDb() {
   if (count.count === 0) {
     await db.exec(`
       INSERT INTO accounts (account_id, holder_name, balance, version) VALUES 
-      ('ACC1001', 'John Doe', 1000.00, 1),
-      ('ACC1002', 'Alice Smith', 1000.00, 1),
-      ('ACC1003', 'Bob Johnson', 1000.00, 1)
+      ('ACC1001', 'Aninda Saha', 1000.00, 1),
+      ('ACC1002', 'Shaid Azmin', 1000.00, 1),
+      ('ACC1003', 'Farid Ahmed', 1000.00, 1)
     `);
   }
 }
