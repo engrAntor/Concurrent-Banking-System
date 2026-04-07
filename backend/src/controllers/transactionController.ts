@@ -70,17 +70,17 @@ export const processTransaction = async (req: Request, res: Response): Promise<v
         'INSERT INTO transactions (from_account, to_account, type, amount, status, reason) VALUES (?, ?, ?, ?, ?, ?)',
         [from_account || null, to_account || null, type, amount, status, txReason || null]
       );
-      
+
       // Emit websocket event
       const reqApp = req.app as any;
       if (reqApp.io) {
         const io = reqApp.io;
         if (status === 'success') {
-           io.emit('transaction:created', { type, amount, from_account, to_account, status });
-           // Notify listeners to fetch new balances
-           io.emit('balance:updated', {});
+          io.emit('transaction:created', { type, amount, from_account, to_account, status });
+          // Notify listeners to fetch new balances
+          io.emit('balance:updated', {});
         } else {
-           io.emit('transaction:failed', { type, amount, from_account, to_account, status, reason: txReason });
+          io.emit('transaction:failed', { type, amount, from_account, to_account, status, reason: txReason });
         }
       }
     }
@@ -152,6 +152,8 @@ export const getAccounts = async (req: Request, res: Response) => {
 
 export const getTransactions = async (req: Request, res: Response) => {
   const db = await getDb();
-  const txs = await db.all('SELECT * FROM transactions ORDER BY created_at DESC LIMIT 50');
+  // Removed the tight LIMIT 50 so you can see all your load test results. 
+  // Added a high limit of 5000 just as a safety net against browser crashes.
+  const txs = await db.all('SELECT * FROM transactions ORDER BY created_at DESC LIMIT 5000');
   res.json(txs);
 }
