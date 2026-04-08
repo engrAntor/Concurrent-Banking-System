@@ -127,7 +127,7 @@ export default function Home() {
 
       {/* Navbar */}
       <nav className="sticky top-0 z-40" style={{ background: 'rgba(3,7,18,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}>
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="w-full px-6 lg:px-12 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}>
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -145,7 +145,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <div className="relative max-w-7xl mx-auto px-6 py-8">
+      <div className="relative w-full px-6 lg:px-12 py-8">
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight mb-1" style={{ background: 'linear-gradient(135deg, #60a5fa, #34d399, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
