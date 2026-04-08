@@ -18,6 +18,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.2",
+    "@types/pg": "^8.20.0",
     "@types/sqlite3": "^3.1.11",
     "async-mutex": "^0.5.0",
     "cors": "^2.8.6",
@@ -30,7 +31,6 @@
     "typescript": "^6.0.2"
   },
   "devDependencies": {
-    "@types/pg": "^8.20.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2"
   }
