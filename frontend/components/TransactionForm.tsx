@@ -71,7 +71,7 @@ export default function TransactionForm({ accounts, onTransactionSuccess }: { ac
 
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/transactions', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, amount: amt, from_account: fromAccount, to_account: toAccount }),

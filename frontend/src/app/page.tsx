@@ -60,10 +60,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'all' | 'deposit' | 'withdraw' | 'transfer'>('all');
 
   const fetchAccounts = async () => {
-    try { const r = await fetch('http://localhost:3001/api/accounts'); setAccounts(await r.json()); } catch {}
+    try { const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/accounts`); setAccounts(await r.json()); } catch {}
   };
   const fetchTransactions = async () => {
-    try { const r = await fetch('http://localhost:3001/api/transactions'); setTransactions(await r.json()); } catch {}
+    try { const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/transactions`); setTransactions(await r.json()); } catch {}
   };
 
   const addNotification = (type: 'success' | 'error', message: string) => {
