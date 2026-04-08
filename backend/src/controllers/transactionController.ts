@@ -65,7 +65,10 @@ export const processTransaction = async (req: Request, res: Response): Promise<v
 
     // Attempt to log transaction
     if (status !== 'failed' || txReason) {
-      await runExec(`INSERT INTO transactions (from_account, to_account, type, amount, status, reason) VALUES ('${from_account || ''}', '${to_account || ''}', '${type}', ${amount}, '${status}', '${txReason || ''}')`);
+      await runUpdate(
+        'INSERT INTO transactions (from_account, to_account, type, amount, status, reason) VALUES (?, ?, ?, ?, ?, ?)',
+        [from_account || null, to_account || null, type, amount, status, txReason || null]
+      );
 
 
       // Emit websocket event
